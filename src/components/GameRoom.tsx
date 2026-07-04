@@ -240,6 +240,7 @@ export default function GameRoom({ roomId }: { roomId: string }) {
   const [isFullscreen, setIsFullscreen]   = useState(false);
   const [theme, setTheme]                 = useState<"dark"|"light">("dark");
   const [gridMode, setGridMode]           = useState("auto");
+  const [resultsCountdown, setResultsCountdown] = useState(10);
 
   // Sync gsRef synchronously so sequential calls never race
   const sync = (gs: GameState) => { gsRef.current = gs; setGameState(gs); };
@@ -537,10 +538,31 @@ export default function GameRoom({ roomId }: { roomId: string }) {
     }
   };
 
-  const handleNextRound = () => updateAndBroadcast({
-    phase: "lobby", secretWord: "", imposterId: "", votesMap: {}, winner: null,
-    roundCount: gsRef.current.roundCount + 1,
-  });
+  const handleNextRound = useCallback(() => {
+    updateAndBroadcast({
+      phase: "lobby", secretWord: "", imposterId: "", votesMap: {}, winner: null,
+      roundCount: gsRef.current.roundCount + 1,
+    });
+  }, [updateAndBroadcast]);
+
+  // Countdown effect for Results phase auto-transition
+  useEffect(() => {
+    if (gameState.phase !== "results") return;
+    setResultsCountdown(10);
+    const timer = setInterval(() => {
+      setResultsCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (isHost) {
+            handleNextRound();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [gameState.phase, isHost, handleNextRound]);
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const myPlayer   = gameState.players.find(p => p.id === myPeerId);
@@ -579,56 +601,51 @@ export default function GameRoom({ roomId }: { roomId: string }) {
     <div className="flex flex-col h-screen h-dvh overflow-hidden text-slate-100">
 
       {/* ── Header ── */}
-      <header className="border-b border-slate-900 bg-slate-950/75 backdrop-blur px-3 py-2.5 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
+      <header className="border-b border-slate-900 bg-slate-950/75 backdrop-blur px-3 py-2 sticky top-0 z-30 shrink-0">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-1">
 
-          {/* Left: share + players */}
-          <div className="flex items-center gap-2">
+          {/* Left: share icon + players count */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={copyLink}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 rounded-lg text-xs font-mono border border-slate-800 hover:border-emerald-500/30 transition cursor-pointer">
-              {copyOk ? <><Check className="w-3.5 h-3.5 text-emerald-400" />Copied!</> : <><Share2 className="w-3.5 h-3.5" />Share</>}
+              title="Copy Invite Link"
+              className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition cursor-pointer flex items-center justify-center shrink-0">
+              {copyOk ? <Check className="w-5.5 h-5.5 text-emerald-400" /> : <Share2 className="w-5.5 h-5.5" />}
             </button>
-            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs font-mono text-slate-400">
-              <Users className="w-3.5 h-3.5 text-slate-500" />
-              {gameState.players.length}
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1.5 rounded-xl text-xs font-mono text-slate-400 shrink-0">
+              <Users className="w-5.5 h-5.5 text-slate-500 shrink-0" />
+              <span className="text-xs font-bold font-mono ml-0.5">{gameState.players.length}</span>
             </div>
           </div>
 
-          {/* Center: room badge */}
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <span className="font-extrabold uppercase font-mono text-xs tracking-widest text-slate-300">
+          {/* Center: room code */}
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="font-black uppercase font-mono text-sm tracking-widest text-slate-300">
               {roomId}
             </span>
           </div>
 
-          {/* Right: Mic/Cam quick toggles + Leaderboard + Fullscreen + Settings */}
-          <div className="flex items-center gap-1.5">
-            {/* Quick mic/cam */}
-            <button onClick={toggleMic}
-              className={`p-1.5 rounded-lg border transition cursor-pointer ${micActive ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-rose-500/15 border-rose-500/30 text-rose-400"}`}>
-              {micActive ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-            </button>
-            <button onClick={toggleCam}
-              className={`p-1.5 rounded-lg border transition cursor-pointer ${camActive ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-rose-500/15 border-rose-500/30 text-rose-400"}`}>
-              {camActive ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
-            </button>
+          {/* Right: Leaderboard + Fullscreen + Settings */}
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Leaderboard */}
             <button onClick={() => setLbOpen(true)}
-              className="p-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-yellow-400 transition cursor-pointer">
-              <Trophy className="w-3.5 h-3.5" />
+              title="Show Leaderboard"
+              className="p-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-yellow-400 transition cursor-pointer flex items-center justify-center shrink-0">
+              <Trophy className="w-5.5 h-5.5" />
             </button>
             {/* Fullscreen — hidden in PWA */}
             {!isPwa && (
               <button onClick={toggleFullscreen}
-                className="pwa-hide p-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 transition cursor-pointer">
-                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                title="Toggle Fullscreen"
+                className="pwa-hide p-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 transition cursor-pointer flex items-center justify-center shrink-0">
+                {isFullscreen ? <Minimize2 className="w-5.5 h-5.5" /> : <Maximize2 className="w-5.5 h-5.5" />}
               </button>
             )}
             {/* Settings */}
             <button onClick={() => setSettingsOpen(true)}
-              className="p-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition cursor-pointer">
-              <Settings className="w-3.5 h-3.5" />
+              title="Open Settings"
+              className="p-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition cursor-pointer flex items-center justify-center shrink-0">
+              <Settings className="w-5.5 h-5.5" />
             </button>
           </div>
         </div>
@@ -751,30 +768,40 @@ export default function GameRoom({ roomId }: { roomId: string }) {
 
       {/* ── Results overlay ── */}
       {gameState.phase === "results" && (
-        <div className="fixed inset-0 z-40 bg-[#060913]/92 backdrop-blur overflow-y-auto">
-          <div className="flex flex-col items-center justify-center min-h-full p-4 gap-5 max-w-md mx-auto py-8">
+        <div className="fixed inset-0 z-40 bg-[#060913]/95 backdrop-blur overflow-y-auto">
+          <div className="flex flex-col items-center justify-center min-h-full p-4 gap-4 max-w-md mx-auto py-8">
 
             <h2 className="text-3xl font-black font-mono uppercase tracking-widest text-center">
               {gameState.winner === "civilians"
-                ? <span className="text-emerald-400 neon-text-green">Civilians Win! 🏆</span>
+                ? <span className="text-emerald-400 neon-text-green">Victory! 🏆</span>
                 : <span className="text-rose-500 neon-text-red">Imposter Wins! 🕵️</span>}
             </h2>
 
-            <p className="text-slate-300 font-mono text-sm text-center leading-relaxed">
+            <p className="text-slate-300 font-mono text-sm text-center leading-relaxed px-4">
               {gameState.winner === "civilians"
                 ? <>You caught <strong>{imposterName}</strong>! The word was <span className="word-chip">{gameState.secretWord}</span>.</>
                 : <><strong>{imposterName}</strong> survived! The word was <span className="word-chip">{gameState.secretWord}</span>.</>}
             </p>
 
-            <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">🔴 Red border = Imposter revealed</p>
-
-            <div className="w-full">
+            {/* Show Imposter only in a neat card size */}
+            <div className="w-full max-w-[240px] aspect-[3/4] my-2">
               <VideoGrid
-                players={gameState.players} localStream={localStream} remoteStreams={remoteStreams}
-                phase={gameState.phase} onVote={() => {}} votedFor={null} myPeerId={myPeerId}
-                votesMap={{}} revealedImposterId={gameState.imposterId}
-                gridMode={gridMode as any}
+                players={gameState.players.filter(p => p.id === gameState.imposterId)}
+                localStream={localStream}
+                remoteStreams={remoteStreams}
+                phase={gameState.phase}
+                onVote={() => {}}
+                votedFor={null}
+                myPeerId={myPeerId}
+                votesMap={{}}
+                revealedImposterId={gameState.imposterId}
+                gridMode="1"
               />
+            </div>
+
+            {/* Timer countdown message */}
+            <div className="text-center font-mono text-xs uppercase tracking-widest text-emerald-400 animate-pulse font-bold">
+              Next round starting in {resultsCountdown}s...
             </div>
 
             {/* Scores */}
@@ -794,13 +821,11 @@ export default function GameRoom({ roomId }: { roomId: string }) {
               </div>
             </div>
 
-            {isHost ? (
+            {isHost && (
               <button onClick={handleNextRound}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl uppercase tracking-widest text-xs font-mono cursor-pointer flex items-center justify-center gap-2 transition">
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl uppercase tracking-widest text-xs font-mono cursor-pointer flex items-center justify-center gap-2 transition">
                 <RefreshCw className="w-4 h-4" /> Next Round 🔄
               </button>
-            ) : (
-              <p className="text-[10px] font-mono text-slate-500 uppercase animate-pulse">Waiting for host to start next round…</p>
             )}
           </div>
         </div>

@@ -81,11 +81,17 @@ export default function SetupSandbox({ onJoin, roomId, existingPlayers = [] }: S
     }
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     audioContextRef.current?.close().catch(() => {});
+
+    // Try auto-fullscreen on mobile
+    if (typeof document !== "undefined" && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
     onJoin(name, stream);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 min-h-screen">
+    <div className="flex flex-col items-center justify-center p-4 min-h-screen overflow-hidden relative">
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
 
       <div className="w-full max-w-sm glass-panel p-6 rounded-2xl border border-emerald-500/20 shadow-2xl relative">
@@ -110,7 +116,7 @@ export default function SetupSandbox({ onJoin, roomId, existingPlayers = [] }: S
           ) : (
             <>
               <video
-                ref={videoRef} autoPlay playsInline muted
+                ref={videoRef} autoPlay playsInline muted disablePictureInPicture
                 className={`w-full h-full object-cover -scale-x-100 transition-opacity duration-300 ${cameraActive ? "opacity-100" : "opacity-0"}`}
               />
               {!cameraActive && (

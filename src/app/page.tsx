@@ -18,6 +18,9 @@ export default function Home() {
   };
 
   const handleCreateRoom = () => {
+    if (typeof document !== "undefined" && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
     router.push(`/room/${generateRoomId()}?isHost=true`);
   };
 
@@ -25,6 +28,10 @@ export default function Home() {
     e.preventDefault();
     const raw = inviteLink.trim();
     if (!raw) { setError("Paste an invite link above"); return; }
+
+    if (typeof document !== "undefined" && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
 
     try {
       // Accept full URL or bare host param
@@ -50,7 +57,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center p-4 relative min-h-screen">
+    <div className="flex flex-col flex-1 items-center justify-center p-4 relative min-h-screen overflow-hidden">
       {/* Ambient glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-[90px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-[300px] h-[300px] bg-rose-500/6 rounded-full blur-[80px] pointer-events-none" />
