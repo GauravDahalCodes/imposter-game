@@ -1,14 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Shield, Check } from "lucide-react";
+import { Shield, Check, UserX } from "lucide-react";
 
 interface Player {
-  id: string;
-  name: string;
-  score: number;
-  isHost: boolean;
-  votedFor?: string | null;
+  id: string; name: string; score: number; isHost: boolean; votedFor?: string | null;
 }
 
 interface VideoGridProps {
@@ -20,178 +16,200 @@ interface VideoGridProps {
   votedFor: string | null;
   myPeerId: string;
   votesMap: Record<string, number>;
-  revealedImposterId?: string; // Only set during results phase
+  revealedImposterId?: string;
+  isHost?: boolean;
+  onKick?: (peerId: string) => void;
+  gridMode?: "auto" | "1" | "2" | "3" | "4";
 }
 
+// ─── Smart column calculator ─────────────────────────────────────────────────
+// Returns the number of columns that best fills the container without overflow.
+// Priority: fill the viewport height, keep cells roughly portrait on mobile.
+function calcCols(n: number, mode: string): number {
+  if (mode !== "auto") return Math.min(parseInt(mode), n);
+  if (n === 1) return 1;
+  if (n === 2) return 2;
+  if (n <= 4) return 2;
+  if (n <= 6) return 3;
+  if (n <= 9) return 3;
+  return 4;
+}
+
+// ─── Single player video tile ─────────────────────────────────────────────────
 function PlayerFeed({
-  player,
-  stream,
-  isMe,
-  ticks,
-  hasVotedForThis,
-  showVoteOverlay,
-  onVote,
-  isRevealedImposter,
-  phase,
+  player, stream, isMe, ticks, hasVotedForThis,
+  showVoteOverlay, onVote, isRevealedImposter, phase, isHost, onKick,
 }: {
-  player: Player;
-  stream: MediaStream | null;
-  isMe: boolean;
-  ticks: number;
-  hasVotedForThis: boolean;
-  showVoteOverlay: boolean;
-  onVote: (id: string) => void;
-  isRevealedImposter: boolean;
-  phase: string;
+  player: Player; stream: MediaStream | null; isMe: boolean;
+  ticks: number; hasVotedForThis: boolean; showVoteOverlay: boolean;
+  onVote: (id: string) => void; isRevealedImposter: boolean;
+  phase: string; isHost: boolean; onKick?: (id: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasVideo, setHasVideo] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (video && stream) {
-      video.srcObject = stream;
-    }
+    if (videoRef.current && stream) videoRef.current.srcObject = stream;
   }, [stream]);
 
   useEffect(() => {
     if (!stream) { setHasVideo(false); return; }
-    const checkVideo = () => {
+    const check = () => {
       const t = stream.getVideoTracks()[0];
       setHasVideo(!!t && t.enabled && t.readyState === "live");
     };
-    checkVideo();
+    check();
     const t = stream.getVideoTracks()[0];
-    if (t) {
-      t.addEventListener("mute", checkVideo);
-      t.addEventListener("unmute", checkVideo);
-      t.addEventListener("ended", checkVideo);
-      return () => {
-        t.removeEventListener("mute", checkVideo);
-        t.removeEventListener("unmute", checkVideo);
-        t.removeEventListener("ended", checkVideo);
-      };
-    }
+    if (!t) return;
+    t.addEventListener("mute",   check);
+    t.addEventListener("unmute", check);
+    t.addEventListener("ended",  check);
+    return () => {
+      t.removeEventListener("mute",   check);
+      t.removeEventListener("unmute", check);
+      t.removeEventListener("ended",  check);
+    };
   }, [stream]);
 
-  // Border style: red pulsing for revealed imposter in results, normal otherwise
-  const borderClass = isRevealedImposter
-    ? "border-2 border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)] animate-pulse"
-    : "border border-slate-800/80 hover:border-slate-700/80";
-
   return (
-    <div className={`relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-950/80 transition-all duration-300 shadow-lg ${borderClass}`}>
-
-      {/* Video or spinner */}
+    // Cell fills 100% of its grid cell (grid-auto-rows: 1fr handles equal heights)
+    <div className={`relative w-full h-full overflow-hidden rounded-xl transition-all duration-300 group
+      ${isRevealedImposter
+        ? "border-2 border-rose-500 imposter-ring shadow-lg shadow-rose-950/50"
+        : "border border-slate-800/80"
+      }`}
+    >
+      {/* ── Video ── */}
       {stream ? (
         <video
           ref={videoRef}
-          autoPlay playsInline
-          muted={isMe}
-          className={`object-cover transition-opacity duration-300 ${hasVideo ? "w-full h-full opacity-100" : "w-0 h-0 opacity-0 absolute"} ${isMe ? "-scale-x-100" : ""}`}
+          autoPlay playsInline muted={isMe}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300
+            ${hasVideo ? "opacity-100" : "opacity-0"}
+            ${isMe ? "-scale-x-100" : ""}`}
         />
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 gap-2">
-          <div className="w-8 h-8 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-          <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500">Connecting…</span>
+        /* No stream yet — spinner */
+        <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-1.5">
+          <div className="w-5 h-5 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+          <span className="text-[8px] uppercase font-mono text-slate-500 tracking-widest">Connecting…</span>
         </div>
       )}
 
-      {/* Avatar fallback when camera locked */}
+      {/* ── Camera-off avatar ── */}
       {stream && !hasVideo && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 gap-3">
-          <div className={`w-14 h-14 rounded-full border flex items-center justify-center text-lg font-black font-mono uppercase shadow-lg ${isRevealedImposter ? "bg-rose-500/15 border-rose-500/40 text-rose-400" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
+        <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center gap-1.5">
+          <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-sm font-black font-mono uppercase
+            ${isRevealedImposter ? "bg-rose-500/15 border-rose-500/40 text-rose-400" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
             {player.name.slice(0, 2)}
           </div>
-          <span className="text-[9px] uppercase font-mono tracking-widest text-slate-500">Audio Active</span>
+          <span className="text-[7px] uppercase font-mono text-slate-500">Audio Only</span>
         </div>
       )}
 
-      {/* Imposter reveal tag */}
+      {/* ── Imposter reveal tag ── */}
       {isRevealedImposter && (
-        <div className="absolute top-2 left-2 right-2 z-10 pointer-events-none">
-          <div className="bg-rose-500/25 border border-rose-500/60 text-rose-300 text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-1 rounded-lg text-center backdrop-blur">
+        <div className="absolute top-1.5 left-1.5 right-1.5 z-10 pointer-events-none">
+          <div className="bg-rose-500/25 border border-rose-500/50 text-rose-300 text-[7px] font-mono font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md text-center backdrop-blur-sm">
             🕵️ IMPOSTER
           </div>
         </div>
       )}
 
-      {/* Host badge */}
+      {/* ── Host badge ── */}
       {player.isHost && !isRevealedImposter && (
-        <div className="absolute top-2 left-2 z-10 pointer-events-none">
-          <div className="bg-slate-950/80 backdrop-blur border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <Shield className="w-2.5 h-2.5 text-emerald-400" />
-            <span className="text-[8px] font-mono text-slate-300 uppercase tracking-widest">Host</span>
+        <div className="absolute top-1.5 left-1.5 z-10 pointer-events-none">
+          <div className="bg-slate-950/80 backdrop-blur border border-emerald-500/20 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+            <Shield className="w-2 h-2 text-emerald-400" />
+            <span className="text-[7px] font-mono text-slate-300 uppercase tracking-widest">Host</span>
           </div>
         </div>
       )}
 
-      {/* Vote ticks */}
+      {/* ── Vote tick count ── */}
       {ticks > 0 && (
-        <div className="absolute top-2 right-2 z-10 pointer-events-none">
-          <div className="bg-emerald-500/20 border border-emerald-400 text-emerald-400 font-bold px-2 py-0.5 rounded-lg text-xs font-mono backdrop-blur flex items-center gap-1">
-            <Check className="w-3.5 h-3.5" />
-            {ticks}
+        <div className="absolute top-1.5 right-1.5 z-10 pointer-events-none">
+          <div className="bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold px-1.5 py-0.5 rounded-md text-[9px] font-mono flex items-center gap-0.5 backdrop-blur-sm">
+            <Check className="w-2.5 h-2.5" /> {ticks}
           </div>
         </div>
       )}
 
-      {/* Vote overlay */}
+      {/* ── Host kick button (hover) ── */}
+      {isHost && !isMe && phase !== "results" && onKick && (
+        <button
+          onClick={() => onKick(player.id)}
+          title={`Kick ${player.name}`}
+          className="absolute top-1.5 right-1.5 z-20 p-1 bg-rose-900/70 hover:bg-rose-600 border border-rose-500/40 text-rose-300 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-150 cursor-pointer"
+        >
+          <UserX className="w-3 h-3" />
+        </button>
+      )}
+
+      {/* ── Vote overlay ── */}
       {showVoteOverlay && (
-        <div className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center p-3 opacity-0 hover:opacity-100 transition-opacity duration-200 z-20">
+        <div className="absolute inset-0 bg-black/50 flex items-end p-1.5 opacity-0 hover:opacity-100 transition-opacity duration-200 z-20">
           <button
             onClick={() => onVote(player.id)}
-            className={`w-full py-3 rounded-xl border text-xs font-mono font-bold uppercase tracking-widest cursor-pointer transition ${
-              hasVotedForThis
+            className={`w-full py-1.5 rounded-lg border text-[9px] font-mono font-bold uppercase tracking-widest cursor-pointer transition
+              ${hasVotedForThis
                 ? "bg-emerald-600 border-emerald-400 text-white"
-                : "bg-slate-950/80 border-slate-800 text-slate-300 hover:bg-slate-900 hover:border-emerald-500/30 hover:text-emerald-400"
-            }`}
+                : "bg-slate-950/85 border-slate-700 text-slate-300 hover:border-emerald-500/40 hover:text-emerald-400"}`}
           >
-            {hasVotedForThis ? "✅ Voted" : `Vote for ${player.name}`}
+            {hasVotedForThis ? "✅ Voted" : "Vote"}
           </button>
         </div>
       )}
 
-      {/* Username bar */}
-      <div className={`absolute bottom-2 left-2 right-2 px-3 py-1.5 rounded-xl z-10 flex items-center justify-between backdrop-blur ${isRevealedImposter ? "bg-rose-950/80 border border-rose-500/20" : "bg-slate-950/85 border border-slate-900"}`}>
-        <span className="text-xs font-bold font-mono text-slate-200 truncate uppercase max-w-[75%]">
-          {player.name}{isMe && " (You)"}
+      {/* ── Name + score bar ── */}
+      <div className={`absolute bottom-0 left-0 right-0 px-2 py-1 z-10 flex items-center justify-between
+        ${isRevealedImposter ? "bg-rose-950/90" : "bg-slate-950/85"}`}>
+        <span className="text-[9px] font-bold font-mono text-slate-200 truncate uppercase leading-none">
+          {player.name}{isMe && " ·you"}
         </span>
-        <span className="text-[9px] font-mono text-slate-400 font-bold">{player.score} pts</span>
+        <span className="text-[8px] font-mono text-slate-400 font-bold shrink-0 ml-1 leading-none">{player.score}p</span>
       </div>
     </div>
   );
 }
 
+// ─── Grid wrapper ─────────────────────────────────────────────────────────────
 export default function VideoGrid({
-  players, localStream, remoteStreams,
-  phase, onVote, votedFor, myPeerId, votesMap, revealedImposterId,
+  players, localStream, remoteStreams, phase, onVote,
+  votedFor, myPeerId, votesMap, revealedImposterId,
+  isHost = false, onKick, gridMode = "auto",
 }: VideoGridProps) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 w-full max-w-6xl mx-auto p-2">
-      {players.map((player) => {
-        const isMe = player.id === myPeerId;
-        const stream = isMe ? localStream : remoteStreams[player.id];
-        const ticks = votesMap[player.id] || 0;
-        const hasVotedForThis = votedFor === player.id;
-        const showVoteOverlay = phase === "voting" && !isMe;
-        const isRevealedImposter = phase === "results" && player.id === revealedImposterId;
+  const n    = players.length;
+  const cols = calcCols(n, gridMode);
+  const rows = Math.ceil(n / cols);
 
-        return (
-          <PlayerFeed
-            key={player.id}
-            player={player}
-            stream={stream}
-            isMe={isMe}
-            ticks={ticks}
-            hasVotedForThis={hasVotedForThis}
-            showVoteOverlay={showVoteOverlay}
-            onVote={onVote}
-            isRevealedImposter={isRevealedImposter}
-            phase={phase}
-          />
-        );
-      })}
+  return (
+    // h-full + grid-auto-rows makes every cell an equal share of the container height
+    <div
+      className="w-full h-full"
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gridTemplateRows: `repeat(${rows}, 1fr)`,
+        gap: "6px",
+      }}
+    >
+      {players.map((player) => (
+        <PlayerFeed
+          key={player.id}
+          player={player}
+          stream={player.id === myPeerId ? localStream : (remoteStreams[player.id] ?? null)}
+          isMe={player.id === myPeerId}
+          ticks={votesMap[player.id] || 0}
+          hasVotedForThis={votedFor === player.id}
+          showVoteOverlay={phase === "voting" && player.id !== myPeerId}
+          onVote={onVote}
+          isRevealedImposter={phase === "results" && player.id === revealedImposterId}
+          phase={phase}
+          isHost={isHost}
+          onKick={onKick}
+        />
+      ))}
     </div>
   );
 }

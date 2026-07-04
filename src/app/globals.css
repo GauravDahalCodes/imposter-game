@@ -1,114 +1,184 @@
 @import "tailwindcss";
 
-:root {
-  --background: #060913;
-  --foreground: #f8fafc;
-  --cyber-green: #10b981;
-  --cyber-red: #f43f5e;
-  --cyber-yellow: #f59e0b;
-  --cyber-glow: 0 0 15px rgba(16, 185, 129, 0.4);
+/* ─── Dark theme (default) ─────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg:         #060913;
+  --bg2:        #0d1221;
+  --bg3:        #111827;
+  --fg:         #f8fafc;
+  --fg2:        #cbd5e1;
+  --fg3:        #64748b;
+  --border:     rgba(255,255,255,0.08);
+  --border2:    rgba(255,255,255,0.04);
+  --glass-bg:   rgba(13, 18, 33, 0.72);
+  --accent:     #10b981;
+  --accent2:    #0d9467;
+  --danger:     #f43f5e;
+  --warn:       #f59e0b;
+  --cyber-green:#10b981;
+  --cyber-red:  #f43f5e;
+  --cyber-yellow:#f59e0b;
+  --cyber-glow: 0 0 15px rgba(16,185,129,0.4);
+  --grid-bg:    linear-gradient(rgba(255,255,255,0.005) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.005) 1px, transparent 1px);
+}
+
+/* ─── Light theme ──────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:         #f1f5f9;
+  --bg2:        #ffffff;
+  --bg3:        #e2e8f0;
+  --fg:         #0f172a;
+  --fg2:        #334155;
+  --fg3:        #94a3b8;
+  --border:     rgba(0,0,0,0.09);
+  --border2:    rgba(0,0,0,0.05);
+  --glass-bg:   rgba(255,255,255,0.78);
+  --accent:     #059669;
+  --accent2:    #047857;
+  --danger:     #e11d48;
+  --warn:       #d97706;
+  --cyber-green:#059669;
+  --cyber-red:  #e11d48;
+  --cyber-yellow:#d97706;
+  --cyber-glow: 0 0 15px rgba(5,150,105,0.25);
+  --grid-bg:    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-cyber-green: var(--cyber-green);
-  --color-cyber-red: var(--cyber-red);
-  --color-cyber-yellow: var(--cyber-yellow);
-  
+  --color-background: var(--bg);
+  --color-foreground:  var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/* ─── Base ─────────────────────────────────────────────── */
+html, body { height: 100%; }
+
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg);
+  color: var(--fg);
   font-family: var(--font-sans), Arial, sans-serif;
   overflow-x: hidden;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.08) 0px, transparent 50%),
-    linear-gradient(rgba(255, 255, 255, 0.005) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.005) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-image: var(--grid-bg),
+    radial-gradient(at 0% 0%, rgba(16,185,129,0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(244,63,94,0.07) 0px, transparent 50%);
+  background-size: 40px 40px, 100% 100%, 100% 100%;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Custom Sci-fi & P2P styles */
-
-.neon-border-green {
-  border-color: var(--cyber-green);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3), inset 0 0 10px rgba(16, 185, 129, 0.2);
-}
-
-.neon-border-red {
-  border-color: var(--cyber-red);
-  box-shadow: 0 0 10px rgba(244, 63, 94, 0.3), inset 0 0 10px rgba(244, 63, 94, 0.2);
-}
-
-.neon-text-green {
-  text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-}
-
-.neon-text-red {
-  text-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
-}
-
+/* ─── Glass panel ─────────────────────────────────────── */
 .glass-panel {
-  background: rgba(13, 18, 33, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
 }
 
-/* Card Flip Styles */
-.perspective-1000 {
-  perspective: 1000px;
+/* ─── Neon effects ─────────────────────────────────────── */
+.neon-border-green {
+  border-color: var(--cyber-green) !important;
+  box-shadow: 0 0 10px rgba(16,185,129,0.3), inset 0 0 10px rgba(16,185,129,0.15);
 }
-
-.preserve-3d {
-  transform-style: preserve-3d;
+.neon-border-red {
+  border-color: var(--cyber-red) !important;
+  box-shadow: 0 0 14px rgba(244,63,94,0.4), inset 0 0 10px rgba(244,63,94,0.15);
 }
+.neon-text-green { text-shadow: 0 0 8px rgba(16,185,129,0.6); }
+.neon-text-red   { text-shadow: 0 0 8px rgba(244,63,94,0.6); }
 
-.backface-hidden {
-  backface-visibility: hidden;
-}
+/* ─── Card Flip ────────────────────────────────────────── */
+.perspective-1000  { perspective: 1000px; }
+.preserve-3d       { transform-style: preserve-3d; }
+.backface-hidden   { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.rotate-y-180      { transform: rotateY(180deg); }
 
-.rotate-y-180 {
-  transform: rotateY(180deg);
-}
-
-/* Keyframe animations */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(16, 185, 129, 0.2), inset 0 0 5px rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6), inset 0 0 15px rgba(16, 185, 129, 0.3);
-    border-color: rgba(16, 185, 129, 1);
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s infinite;
-}
-
-@keyframes scanline {
-  0% {
-    transform: translateY(-100%);
-  }
-  100% {
-    transform: translateY(100%);
-  }
-}
-
+/* ─── Scanline overlay ─────────────────────────────────── */
 .scanline::after {
-  content: " ";
+  content: "";
   display: block;
   position: absolute;
-  top: 0; left: 0; bottom: 0; right: 0;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-  z-index: 2;
+  inset: 0;
+  background:
+    linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.18) 50%),
+    linear-gradient(90deg, rgba(255,0,0,0.04), rgba(0,255,0,0.015), rgba(0,0,255,0.04));
   background-size: 100% 2px, 3px 100%;
   pointer-events: none;
+  z-index: 2;
 }
 
+/* ─── Settings slide panel ─────────────────────────────── */
+.settings-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(320px, 90vw);
+  z-index: 200;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 40px rgba(0,0,0,0.35);
+  overflow-y: auto;
+}
+.settings-panel.open { transform: translateX(0); }
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  background: rgba(0,0,0,0);
+  pointer-events: none;
+  transition: background 0.28s;
+}
+.settings-backdrop.open {
+  background: rgba(0,0,0,0.45);
+  pointer-events: auto;
+}
+
+/* ─── Highlight chip (secret word reveal) ─────────────── */
+.word-chip {
+  display: inline-block;
+  background: rgba(16,185,129,0.18);
+  border: 1px solid rgba(16,185,129,0.45);
+  color: #6ee7b7;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.4rem;
+  font-size: 0.9em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 8px rgba(16,185,129,0.2);
+}
+
+/* ─── PWA: fullscreen + safe-area ─────────────────────── */
+@media all and (display-mode: standalone) {
+  .pwa-hide { display: none !important; }
+  body { padding-top: env(safe-area-inset-top); }
+}
+
+/* ─── Keyframes ────────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16,185,129,0.2), inset 0 0 5px rgba(16,185,129,0.1);
+    border-color: rgba(16,185,129,0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16,185,129,0.6), inset 0 0 15px rgba(16,185,129,0.3);
+    border-color: rgba(16,185,129,1);
+  }
+}
+.animate-pulse-glow { animation: pulse-glow 2s infinite; }
+
+@keyframes slide-in-right {
+  from { opacity:0; transform: translateX(12px); }
+  to   { opacity:1; transform: translateX(0); }
+}
+.animate-slide-in { animation: slide-in-right 0.2s ease both; }
+
+@keyframes imposter-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0.55); }
+  50%       { box-shadow: 0 0 0 6px rgba(244,63,94,0); }
+}
+.imposter-ring { animation: imposter-pulse 1.4s ease infinite; }

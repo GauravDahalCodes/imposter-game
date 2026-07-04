@@ -1,0 +1,16 @@
+{
+  "name": "Undercover Imposter",
+  "short_name": "Imposter",
+  "description": "Real-time P2P party game. Find the imposter among your crew.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "background_color": "#060913",
+  "theme_color": "#10b981",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["games", "entertainment"],
+  "prefer_related_applications": false
+}
