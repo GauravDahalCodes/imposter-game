@@ -39,6 +39,7 @@ function SettingsPanel({
   username, onRenameUser, existingNames,
   theme, onToggleTheme,
   gridMode, onGridMode,
+  isHost, kickModeActive, onToggleKickMode,
 }: {
   open: boolean; onClose: () => void;
   micActive: boolean; camActive: boolean;
@@ -46,6 +47,7 @@ function SettingsPanel({
   username: string; onRenameUser: (n: string) => void; existingNames: string[];
   theme: "dark" | "light"; onToggleTheme: () => void;
   gridMode: string; onGridMode: (m: string) => void;
+  isHost: boolean; kickModeActive: boolean; onToggleKickMode: () => void;
 }) {
   const [nameInput, setNameInput] = useState(username);
   const [nameErr,   setNameErr]   = useState("");
@@ -74,8 +76,18 @@ function SettingsPanel({
 
   const handleInstall = () => {
     const ev = (window as any).__pwaInstallPrompt;
-    if (ev) { ev.prompt(); ev.userChoice.then(() => { (window as any).__pwaInstallPrompt = null; }); }
-    else alert("To install: use your browser's 'Add to Home Screen' option.");
+    if (ev) {
+      ev.prompt();
+      ev.userChoice.then(() => { (window as any).__pwaInstallPrompt = null; });
+    } else {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIOS) {
+        alert("📱 To install on iPhone/iPad:\n1. Tap the Share button at the bottom of Safari.\n2. Scroll down and select 'Add to Home Screen'.\n3. Tap 'Add' to confirm!");
+      } else {
+        alert("🤖 To install on Android:\n1. Tap the 3-dot menu at the top-right of your browser.\n2. Select 'Install app' or 'Add to Home Screen'.");
+      }
+    }
   };
 
   return (
@@ -148,6 +160,22 @@ function SettingsPanel({
               ))}
             </div>
           </section>
+
+          {/* Host operations / Kick out mode */}
+          {isHost && (
+            <section>
+              <h3 className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-3">Host Operations</h3>
+              <button onClick={onToggleKickMode}
+                className={`w-full flex items-center justify-between px-4 py-3 border rounded-xl cursor-pointer transition ${
+                  kickModeActive
+                    ? "bg-rose-500/10 border-rose-500/35 text-rose-400"
+                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                }`}>
+                <span className="text-xs font-mono uppercase tracking-widest font-bold">Kick Out Mode</span>
+                <UserX className="w-4 h-4" />
+              </button>
+            </section>
+          )}
 
           {/* Install PWA */}
           {!isPwa && (
@@ -241,6 +269,7 @@ export default function GameRoom({ roomId }: { roomId: string }) {
   const [theme, setTheme]                 = useState<"dark"|"light">("dark");
   const [gridMode, setGridMode]           = useState("auto");
   const [resultsCountdown, setResultsCountdown] = useState(10);
+  const [kickModeActive, setKickModeActive]     = useState(false);
 
   // Sync gsRef synchronously so sequential calls never race
   const sync = (gs: GameState) => { gsRef.current = gs; setGameState(gs); };
@@ -542,6 +571,7 @@ export default function GameRoom({ roomId }: { roomId: string }) {
     updateAndBroadcast({
       phase: "lobby", secretWord: "", imposterId: "", votesMap: {}, winner: null,
       roundCount: gsRef.current.roundCount + 1,
+      players: gsRef.current.players.map(p => ({ ...p, votedFor: null })),
     });
   }, [updateAndBroadcast]);
 
@@ -718,6 +748,7 @@ export default function GameRoom({ roomId }: { roomId: string }) {
             isHost={isHost}
             onKick={handleKick}
             gridMode={gridMode as any}
+            kickModeActive={kickModeActive}
           />
         </div>
       </main>
@@ -733,7 +764,8 @@ export default function GameRoom({ roomId }: { roomId: string }) {
                 <p className="text-base font-bold font-mono uppercase tracking-widest text-slate-300">Assigning roles…</p>
               </div>
               {/* Back */}
-              <div className="absolute inset-0 backface-hidden rotate-y-180 rounded-2xl flex flex-col items-center justify-center p-8 shadow-2xl bg-slate-950">
+              <div className={`absolute inset-0 backface-hidden rotate-y-180 rounded-2xl flex flex-col items-center justify-center p-8 shadow-2xl bg-slate-950 border-2
+                ${isImposter ? "border-rose-500/50 shadow-rose-950/20" : "border-emerald-500/50 shadow-emerald-950/20"}`}>
                 {isImposter ? (
                   <div className="text-center space-y-5">
                     <div className="w-20 h-20 rounded-full bg-rose-500/15 border border-rose-500/40 flex items-center justify-center mx-auto neon-border-red">
@@ -832,7 +864,7 @@ export default function GameRoom({ roomId }: { roomId: string }) {
       )}
 
       {/* ── Footer actions ── */}
-      <footer className="fixed bottom-0 left-0 right-0 border-t border-slate-900 bg-slate-950/80 backdrop-blur px-3 py-2.5 z-30 flex justify-center">
+      <footer className="shrink-0 border-t border-slate-900 bg-slate-950/80 backdrop-blur px-3 py-2.5 z-30 flex justify-center">
         <div className="max-w-6xl w-full flex items-center justify-center">
 
           {gameState.phase === "lobby" && (
@@ -930,6 +962,9 @@ export default function GameRoom({ roomId }: { roomId: string }) {
         existingNames={gameState.players.filter(p => p.id !== myPeerId).map(p => p.name)}
         theme={theme} onToggleTheme={() => setTheme(t => t === "dark" ? "light" : "dark")}
         gridMode={gridMode} onGridMode={setGridMode}
+        isHost={isHost}
+        kickModeActive={kickModeActive}
+        onToggleKickMode={() => setKickModeActive(k => !k)}
       />
 
       {/* ── Leaderboard ── */}
